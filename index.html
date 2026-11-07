@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d111a">
+<meta name="description" content="Bingo interativo para acompanhar debates: escolha ou sorteie temas, marque as casas e complete linhas.">
+<title>Bingo dos Debates</title>
+<style>
+:root{color-scheme:dark;--bg:#0d111a;--surface:#161d2a;--surface2:#202a39;--border:#344255;--muted:#abb8c8;--text:#f0f5fb;--accent:#65df9c;--accent-dark:#103524}
+*{box-sizing:border-box}
+html{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+body{margin:0;background:radial-gradient(ellipse 70% 400px at top,#193b32 0%,transparent 80%),var(--bg);min-height:100vh}
+main{width:min(840px,100%);margin:0 auto;padding:28px 15px 60px}
+h1,h2,p{margin:0}
+.eyebrow{text-transform:uppercase;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:2px}
+.hero{margin-bottom:24px}
+h1{font-size:clamp(28px,6vw,48px);letter-spacing:-1.5px;margin:7px 0}
+.hero p{color:var(--muted);font-size:14px;line-height:1.5;max-width:640px}
+.pick{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.pick label{font-size:13px;font-weight:700}
+select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:14px;border-radius:12px;outline-offset:2px;width:100%;font:inherit}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:20px}
+button{font:inherit;cursor:pointer}
+.action{padding:12px 8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-weight:700;border-radius:12px;font-size:14px}
+.action.primary{background:var(--accent);color:#092016;border-color:var(--accent)}
+button:focus-visible,select:focus-visible{outline:3px solid #f5cb60;outline-offset:3px}
+.board{border:1px solid var(--border);border-radius:22px;background:var(--surface);padding:14px;box-shadow:0 20px 70px #0005}
+.board-header{text-align:center;padding:8px 2px 21px}
+.board-header h2{font-size:clamp(18px,4.6vw,29px);line-height:1.2}
+.board-header p{color:var(--muted);font-size:12px;margin-top:7px}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.heading{font-weight:900;font-size:24px;background:var(--surface2);border-radius:9px;padding:7px 0;text-align:center}
+.cell{position:relative;aspect-ratio:1/1.02;min-height:66px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--border);border-radius:10px;padding:8px 5px;background:var(--surface2);color:var(--text);font-weight:700;font-size:clamp(10px,2vw,15px);line-height:1.25;overflow-wrap:anywhere;transition:background .1s,transform .1s}
+.cell:active{transform:scale(.96)}
+.cell.marked{background:var(--accent-dark);border-color:var(--accent);color:#d7ffea}
+.cell.marked:after{content:"✓";position:absolute;right:4px;top:1px;color:var(--accent);font-size:15px}
+.cell.free{background:#17452f}
+.bottom{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:18px 3px 3px}
+.count{color:var(--muted);font-size:13px}
+.win{font-weight:900;color:var(--accent);text-align:right}
+.disclaimer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.55}
+#status{font-weight:700}
+@media(max-width:450px){main{padding:19px 10px 45px}.board{padding:8px;border-radius:15px}.grid{gap:4px}.cell{font-size:9.5px;padding:4px 2px;border-radius:7px;min-height:60px}.heading{font-size:20px}.action{font-size:12px;padding:12px 5px}.bottom{align-items:flex-start;flex-direction:column;gap:4px}}
+@media print{body{background:white;color:black}.hero,.pick,.actions,.disclaimer{display:none}.board{box-shadow:none;border-color:#444;background:white}.cell,.heading{background:white;color:black;border:1px solid #777}.cell.marked{background:#d1ffdf;color:black}.board-header p,.count{color:black}}
+</style>
+</head>
+<body>
+<main>
+<header class="hero"><div class="eyebrow">Cartelas interativas • 7 temas</div><h1>🎯 Bingo dos Debates</h1><p>Acompanhe a live, marque os argumentos e veja se fecha uma linha. Cada tema guarda seu progresso neste navegador — e você pode embaralhar quantas vezes quiser.</p></header>
+<div class="pick"><label for="theme">Escolha o tema</label><select id="theme"></select></div>
+<div class="actions">
+<button class="action primary" id="randomTheme">🎲 Sortear tema</button>
+<button class="action" id="shuffle">🔀 Nova cartela</button>
+<button class="action" id="clear">↺ Zerar marcações</button>
+<button class="action" id="print">🖨️ Imprimir cartela</button>
+</div>
+<section class="board" aria-label="Cartela de bingo">
+<div class="board-header"><h2 id="boardTitle"></h2><p id="subtitle"></p></div>
+<div id="grid" class="grid"></div>
+<div class="bottom"><span id="status" class="count"></span><span id="win" class="win" aria-live="polite"></span></div>
+</section>
+<p class="disclaimer">As frases são resumos satíricos de argumentos e situações para uso durante debates; não são necessariamente citações literais nem uma afirmação de que determinada pessoa disse todas elas. Sem login, anúncios ou rastreamento. Os dados ficam apenas no navegador.</p>
+</main>
+<script>
+"use strict";
+const THEMES={"Pergunte ao Ateu — Geral":{"subtitle":"Respostas e momentos recorrentes em debates bíblicos","items":["Tirou de contexto","Isso é metáfora","Deus deu livre-arbítrio","Tradução está errada","Deus é amor","Era normal naquela época","Velho x Novo Testamento","Abre a Bíblia para conferir","Deus permitiu, não causou","Deus escreve certo por linhas tortas","Menciona Números 31","Você também tem fé","Foge da pergunta","Planos de Deus são misteriosos","A ciência comprova a Bíblia","Lê o contexto inteiro","1 Samuel 15:3","Deus é justo","É questão de interpretação","Dilúvio e arca de Noé","Adão e Eva eram reais","Defesa de escravidão bíblica","Deus mandou matar crianças","Repete argumento já respondido"]},"Profecias bíblicas":{"subtitle":"Cumprimentos, datas e interpretações","items":["Ezequiel 26 e Tiro","Profecia sobre o Egito","Mateus 24:34","Esta geração não passará","O fim está próximo","Cumprimento simbólico","Cumprimento ainda futuro","Duplo cumprimento","Isaías 7:14","Daniel e os impérios","Apocalipse literal","Apocalipse simbólico","Profecia sobre Jesus","Cumpriu espiritualmente","Texto escrito depois do fato?","Data de autoria contestada","Interpretação retrospectiva","Cumpriu parcialmente","Deus mudou o plano","O livre-arbítrio interferiu","Israel moderno como sinal","Cita evento histórico","Pede uma data verificável","Profecia vaga demais"]},"Adão, Eva e dilúvio":{"subtitle":"Gênesis, origem humana e arca de Noé","items":["Incesto entre irmãos","Era normal naquela época","Deus criou outros casais?","De onde veio a esposa de Caim?","Gênesis 4:17","Humanidade veio de um casal","Genética de populações","Pecado original","Serpente falante","Árvore do conhecimento","Idade da Terra","Dias da criação","Evolução é só teoria","De onde veio tanta água?","Todos os animais na arca","Dinossauros na arca","Dilúvio global ou local?","Arco-íris como aliança","Fósseis e geologia","Noé e sua família","Diversidade dos povos","Torre de Babel","Era uma alegoria","Pede evidências geológicas"]},"Justiça e moral bíblica":{"subtitle":"Leis, violência e decisões atribuídas a Deus","items":["Davi é Davi","Adultério e pena de morte","Levítico 20:10","Davi e Bate-Seba","Morte de Urias","Filho de Davi morre","Deus é justo","Deus pode perdoar","Números 31:17–18","1 Samuel 15:3","Crianças mortas em guerra","Naquela época era normal","Escravidão em Levítico","Êxodo 21","Moral objetiva","Deus não muda","Velha aliança","Novo Testamento mudou tudo","Contexto cultural","Justiça versus misericórdia","Deus deu a vida","Mandamento de amar","Exceção divina","Compara duas passagens"]},"Ciência × fé":{"subtitle":"Evolução, cosmologia e argumentos de design","items":["É só uma teoria","Se viemos do macaco...","Quem criou o Big Bang?","Terra na distância perfeita","Ajuste fino do universo","DNA é um código","Complexidade irredutível","Probabilidade impossível","O acaso não cria vida","A ciência também é fé","Micro sim, macro não","Cadê o elo perdido?","2ª lei da termodinâmica","Newton acreditava em Deus","Darwin se arrependeu","Quiralidade","Confunde origem da vida e evolução","Fusão do cromossomo 2","Célula é uma máquina","Biogênese","Não é religião, é ciência","A academia censura","Deus das lacunas","Pede artigo científico"]},"Marcos Eberlin — Design Inteligente":{"subtitle":"Cartela temática de argumentos, não transcrições literais","items":["Fomos planejados","DNA tem informação","Informação exige inteligência","Complexidade irredutível","Antevidência","Quiralidade","Ajuste fino","Biogênese","Célula é uma fábrica","Máquinas moleculares","Flagelo bacteriano","Probabilidade improvável","Crítica a Darwin","Micro x macroevolução","Origem da vida","Design não é religião","Projetista não identificado","Fósseis intermediários","Cromossomo 2","DNA lixo","Ciência não explica tudo","Resistência da academia","Darwin não conhecia DNA","Leis naturais insuficientes"]},"Murilo Moraes — Bingo de debate":{"subtitle":"Clichês de debates e comentários de internet","items":["E o PT?","Cultura woke","Foi tirado de contexto","Compre meu curso","Geração mimimi","Nem esquerda nem direita","Deus, pátria e família","Isso a mídia esconde","É só trabalhar","Faça o L","Liberdade de expressão","Sou perseguido","O Brasil vai quebrar","Vai virar Venezuela","Não pode falar mais nada","Fonte: confia","Mentalidade de rico","O sistema tem medo","É tudo lacração","Cidadão de bem","Era só uma piada","Ninguém quer trabalhar","O algoritmo censura","Na minha época..."]}};
+const STORAGE_KEY="bingo-dos-debates-v2";
+const names=Object.keys(THEMES);
+const select=document.getElementById("theme");
+const grid=document.getElementById("grid");
+const lines=[];
+for(let r=0;r<5;r++)lines.push(Array.from({length:5},(_,c)=>r*5+c));
+for(let c=0;c<5;c++)lines.push(Array.from({length:5},(_,r)=>r*5+c));
+lines.push([0,6,12,18,24],[4,8,12,16,20]);
+let state={theme:names[0],boards:{}};
+try {
+ const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
+ if(saved&&names.includes(saved.theme)&&saved.boards&&typeof saved.boards==="object")state=saved;
+} catch(e) {}
+function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}catch(e){}}
+function shuffle(items){
+ const copy=[...items];
+ for(let i=copy.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]]}
+ return copy;
+}
+function createBoard(name){
+ const cards=shuffle(THEMES[name].items);
+ cards.splice(12,0,"LIVRE");
+ return {cards,marks:[12]};
+}
+function getBoard(){
+ const name=state.theme;
+ let board=state.boards[name];
+ const valid=board&&Array.isArray(board.cards)&&board.cards.length===25&&Array.isArray(board.marks)&&board.cards[12]==="LIVRE";
+ if(!valid){board=createBoard(name);state.boards[name]=board;save()}
+ return board;
+}
+function render(){
+ const name=state.theme, board=getBoard(), checked=new Set(board.marks);
+ select.value=name;
+ document.getElementById("boardTitle").textContent=name;
+ document.getElementById("subtitle").textContent=THEMES[name].subtitle;
+ grid.replaceChildren();
+ for(const letter of "BINGO"){
+  const title=document.createElement("div");title.className="heading";title.textContent=letter;grid.append(title);
+ }
+ board.cards.forEach((phrase,index)=>{
+  const btn=document.createElement("button");
+  btn.type="button";
+  btn.className="cell"+(checked.has(index)?" marked":"")+(index===12?" free":"");
+  btn.textContent=phrase;
+  btn.setAttribute("aria-label",phrase+(checked.has(index)?" marcado":" não marcado"));
+  btn.setAttribute("aria-pressed",String(checked.has(index)));
+  btn.disabled=index===12;
+  btn.addEventListener("click",()=>{
+   const marks=new Set(getBoard().marks);
+   marks.has(index)?marks.delete(index):marks.add(index);
+   getBoard().marks=[...marks];save();render();
+  });
+  grid.append(btn);
+ });
+ const wins=lines.filter(line=>line.every(i=>checked.has(i))).length;
+ document.getElementById("status").textContent=(checked.size-1)+" de 24 casas marcadas";
+ document.getElementById("win").textContent=wins?"🎉 BINGO! "+wins+" linha"+(wins>1?"s":"")+"!":"";
+}
+names.forEach(name=>select.add(new Option(name,name)));
+select.addEventListener("change",()=>{state.theme=select.value;save();render()});
+document.getElementById("randomTheme").addEventListener("click",()=>{
+ const available=names.filter(name=>name!==state.theme);
+ state.theme=available[Math.floor(Math.random()*available.length)];
+ save();render();
+});
+document.getElementById("shuffle").addEventListener("click",()=>{
+ state.boards[state.theme]=createBoard(state.theme);save();render();
+});
+document.getElementById("clear").addEventListener("click",()=>{
+ getBoard().marks=[12];save();render();
+});
+document.getElementById("print").addEventListener("click",()=>window.print());
+render();
+</script>
+</body></html>
