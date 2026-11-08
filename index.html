@@ -41,6 +41,9 @@ button:focus-visible,select:focus-visible{outline:3px solid #f5cb60;outline-offs
 .win{font-weight:900;color:var(--accent);text-align:right}
 .disclaimer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.55}
 #status{font-weight:700}
+.related-video{display:inline-block;color:var(--accent);font-size:12px;margin-top:12px;line-height:1.45;text-underline-offset:3px}
+.related-video[hidden],.video-note[hidden]{display:none}
+.video-note{font-size:11px!important;margin-top:5px!important;color:var(--muted)}
 @media(max-width:450px){main{padding:19px 10px 45px}.board{padding:8px;border-radius:15px}.grid{gap:4px}.cell{font-size:9.5px;padding:4px 2px;border-radius:7px;min-height:60px}.heading{font-size:20px}.action{font-size:12px;padding:12px 5px}.bottom{align-items:flex-start;flex-direction:column;gap:4px}}
 @media print{body{background:white;color:black}.hero,.pick,.actions,.disclaimer{display:none}.board{box-shadow:none;border-color:#444;background:white}.cell,.heading{background:white;color:black;border:1px solid #777}.cell.marked{background:#d1ffdf;color:black}.board-header p,.count{color:black}}
 </style>
@@ -56,7 +59,7 @@ button:focus-visible,select:focus-visible{outline:3px solid #f5cb60;outline-offs
 <button class="action" id="print">🖨️ Imprimir cartela</button>
 </div>
 <section class="board" aria-label="Cartela de bingo">
-<div class="board-header"><h2 id="boardTitle"></h2><p id="subtitle"></p></div>
+<div class="board-header"><h2 id="boardTitle"></h2><p id="subtitle"></p><a id="relatedVideo" class="related-video" href="https://youtu.be/FY6Nt6XW1fA" target="_blank" rel="noopener noreferrer" hidden>▶ Ver vídeo relacionado: O CRENTE mais INSANO que já falou no PERGUNTE AO ATEU</a><p id="videoNote" class="video-note" hidden>Cartela temática — as casas não são transcrições verificadas deste episódio.</p></div>
 <div id="grid" class="grid"></div>
 <div class="bottom"><span id="status" class="count"></span><span id="win" class="win" aria-live="polite"></span></div>
 </section>
@@ -101,6 +104,9 @@ function render(){
  select.value=name;
  document.getElementById("boardTitle").textContent=name;
  document.getElementById("subtitle").textContent=THEMES[name].subtitle;
+ const isReferenceTheme=name==="O homem criou Deus à sua imagem e semelhança";
+ document.getElementById("relatedVideo").hidden=!isReferenceTheme;
+ document.getElementById("videoNote").hidden=!isReferenceTheme;
  grid.replaceChildren();
  for(const letter of "BINGO"){
   const title=document.createElement("div");title.className="heading";title.textContent=letter;grid.append(title);
